@@ -17,16 +17,12 @@ fn main() {
             ..Default::default()
         })
         .add_resource(Paused(false))
-        //.init_resource::<Paused>() //(Paused(false))
-        //.init_resource::<GamepadLobby>()
-        //.add_system_to_stage(stage::PRE_UPDATE, connection_system.system())
         .add_resource(GamepadLobby::default())
         .add_startup_system(setup.system())
-        .add_startup_system(connection_system.system())
         .add_startup_stage("spawn_player")
         .add_startup_system_to_stage("spawn_player", spawn_player.system())
+        .add_system(connection_system.system())
         .add_system(pause.system())
-        //.add_system(connection_system.system())
         .add_system(player_movement.system())
         .add_default_plugins()
         .run();
@@ -88,15 +84,15 @@ fn player_movement(
     keyboard_input: Res<Input<KeyCode>>,
     lobby: Res<GamepadLobby>,
     button_inputs: Res<Input<GamepadButton>>,
-    //button_axes: Res<Axis<GamepadAxis>>,
     axes: Res<Axis<GamepadAxis>>,
     mut player_position: Query<(&Player, &mut Transform)>,
 ) {
     if paused.0 {
         return;
     }
+
     for (_player, mut transform) in &mut player_position.iter() {
-        // Keyboard
+        // Check Keyboard input
         if keyboard_input.pressed(KeyCode::Left) {
             *transform.translation_mut().x_mut() -= 10.;
         }
@@ -110,27 +106,30 @@ fn player_movement(
             *transform.translation_mut().y_mut() += 10.;
         }
 
-        // Gamepad
+        // Check Gamepad input
         for gamepad in lobby.gamepads.iter().cloned() {
+            // TODO - Currently D-pad doesn't work for Bevy? Use these until you get the code to
+            // move linked up to the sticks.
             if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::East)) {
                 *transform.translation_mut().x_mut() += 10.;
             }
-            if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::DPadLeft)) {
+            if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::West)) {
                 eprintln!("Pressed!");
                 *transform.translation_mut().x_mut() -= 10.;
             }
-            if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::DPadUp)) {
+            if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::North)) {
                 *transform.translation_mut().y_mut() += 10.;
             }
-            if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::DPadDown)) {
+            if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::South)) {
                 *transform.translation_mut().y_mut() -= 10.;
             }
 
+            // Sample of code to read stick input.
             let left_stick_x = axes
                 .get(&GamepadAxis(gamepad, GamepadAxisType::LeftStickX))
                 .unwrap();
             if left_stick_x.abs() > 0.01 {
-                println!("{:?} RightStickX value is {}", gamepad, left_stick_x);
+                println!("{:?} LeftStickX value is {}", gamepad, left_stick_x);
             }
             let right_stick_x = axes
                 .get(&GamepadAxis(gamepad, GamepadAxisType::LeftStickX))
@@ -139,17 +138,5 @@ fn player_movement(
                 println!("{:?} RightStickX value is {}", gamepad, right_stick_x);
             }
         }
-        //if gamepad_input.pressed(GamepadButtonType::West) {
-        //*transform.translation_mut().x_mut() -= 10.;
-        //}
-        //if gamepad_input.pressed(GamepadButtonType::East) {
-        //*transform.translation_mut().x_mut() += 10.;
-        //}
-        //if gamepad_input.pressed(GamepadButtonType::South) {
-        //*transform.translation_mut().y_mut() -= 10.;
-        //}
-        //if gamepad_input.pressed(GamepadButtonType::North) {
-        //*transform.translation_mut().y_mut() += 10.;
-        //}
     }
 }

@@ -12,7 +12,6 @@ pub fn connection_system(
     mut lobby: ResMut<GamepadLobby>,
     gamepad_event: Res<Events<GamepadEvent>>,
 ) {
-    eprintln!("Connection system online..");
     for event in lobby.gamepad_event_reader.iter(&gamepad_event) {
         match &event {
             GamepadEvent(gamepad, GamepadEventType::Connected) => {
