@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use rand::Rng;
 
 mod components;
 mod systems;
@@ -17,8 +18,9 @@ fn main() {
         .add_resource(Paused(false))
         .add_resource(GamepadLobby::default())
         .add_startup_system(setup.system())
-        .add_startup_stage("spawn_player")
-        .add_startup_system_to_stage("spawn_player", spawn_player.system())
+        .add_startup_stage("spawn_entities")
+        .add_startup_system_to_stage("spawn_entities", spawn_player.system())
+        .add_startup_system_to_stage("spawn_entities", spawn_enemies.system())
         .add_system(animate_sprite_system.system())
         .add_system(connection_system.system())
         .add_system(pause.system())
@@ -89,6 +91,38 @@ fn spawn_player(
         .with(Timer::from_seconds(0.225, true))
         .with(Velocity::zero())
         .with(Player::new(800.0));
+}
+
+fn spawn_enemies(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut textures: ResMut<Assets<Texture>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+) {
+    let idle_anim_handle = asset_server
+        .load_sync(&mut textures, "assets/sprites/evil_whisper.png")
+        .unwrap();
+
+    let texture = textures.get(&idle_anim_handle).unwrap();
+    let texture_atlas = TextureAtlas::from_grid(idle_anim_handle, texture.size, 4, 1);
+    let texture_atlas_handle = texture_atlases.add(texture_atlas);
+
+    let mut rng = rand::thread_rng();
+    for enemy_idx in 1..=3 {
+        let anim_timer = rng.gen_range(0.175, 0.300);
+        commands
+            .spawn(SpriteSheetComponents {
+                texture_atlas: texture_atlas_handle,
+                transform: Transform::from_scale(6.75).with_translation(Vec3::new(
+                    ((enemy_idx as f32) * 150.0) - 300.0,
+                    300.0,
+                    0.0,
+                )),
+                ..Default::default()
+            })
+            .with(Timer::from_seconds(anim_timer, true))
+            .with(Velocity::zero());
+    }
 }
 
 fn player_movement(

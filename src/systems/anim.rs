@@ -1,3 +1,4 @@
+// Ref: https://github.com/bevyengine/bevy/blob/v0.2.1/examples/2d/sprite_sheet.rs
 use bevy::prelude::*;
 
 pub fn animate_sprite_system(
