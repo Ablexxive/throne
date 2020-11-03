@@ -67,7 +67,38 @@ fn setup(
         .with(PauseScreenItem);
 }
 
-struct Player;
+pub struct Player {
+    pub move_speed: f32,
+}
+
+impl Player {
+    pub fn new(move_speed: f32) -> Self {
+        Self { move_speed }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Velocity(pub Vec2);
+
+impl Velocity {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self(Vec2::new(x, y))
+    }
+
+    pub fn zero() -> Self {
+        Self::new(0.0, 0.0)
+    }
+
+    pub fn update_velocity(&mut self, new_velocity: Vec2) {
+        self.0 = new_velocity;
+    }
+}
+
+impl From<Vec2> for Velocity {
+    fn from(val: Vec2) -> Self {
+        Self(val)
+    }
+}
 
 fn spawn_player(mut commands: Commands, sprite_material: Res<SpritePlaceholderMaterial>) {
     commands
@@ -76,22 +107,24 @@ fn spawn_player(mut commands: Commands, sprite_material: Res<SpritePlaceholderMa
             sprite: Sprite::new(Vec2::new(10.0, 10.0)),
             ..Default::default()
         })
-        .with(Player);
+        .with(Velocity::zero())
+        .with(Player::new(800.0));
 }
 
 fn player_movement(
-    paused: Res<Paused>,
+    axes: Res<Axis<GamepadAxis>>,
+    button_inputs: Res<Input<GamepadButton>>,
     keyboard_input: Res<Input<KeyCode>>,
     lobby: Res<GamepadLobby>,
-    button_inputs: Res<Input<GamepadButton>>,
-    axes: Res<Axis<GamepadAxis>>,
-    mut player_position: Query<(&Player, &mut Transform)>,
+    paused: Res<Paused>,
+    time: Res<Time>,
+    mut player_info: Query<(&Player, &mut Transform, &mut Velocity)>,
 ) {
     if paused.0 {
         return;
     }
 
-    for (_player, mut transform) in &mut player_position.iter() {
+    for (player, mut transform, mut velocity) in &mut player_info.iter() {
         // Check Keyboard input
         if keyboard_input.pressed(KeyCode::Left) {
             *transform.translation_mut().x_mut() -= 10.;
@@ -108,13 +141,11 @@ fn player_movement(
 
         // Check Gamepad input
         for gamepad in lobby.gamepads.iter().cloned() {
-            // TODO - Currently D-pad doesn't work for Bevy? Use these until you get the code to
-            // move linked up to the sticks.
+            // Tempoaray, remove when these buttons have other uses.
             if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::East)) {
                 *transform.translation_mut().x_mut() += 10.;
             }
             if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::West)) {
-                eprintln!("Pressed!");
                 *transform.translation_mut().x_mut() -= 10.;
             }
             if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::North)) {
@@ -128,15 +159,15 @@ fn player_movement(
             let left_stick_x = axes
                 .get(&GamepadAxis(gamepad, GamepadAxisType::LeftStickX))
                 .unwrap();
-            if left_stick_x.abs() > 0.01 {
-                println!("{:?} LeftStickX value is {}", gamepad, left_stick_x);
-            }
-            let right_stick_x = axes
-                .get(&GamepadAxis(gamepad, GamepadAxisType::LeftStickX))
+            let left_stick_y = axes
+                .get(&GamepadAxis(gamepad, GamepadAxisType::LeftStickY))
                 .unwrap();
-            if right_stick_x.abs() > 0.01 {
-                println!("{:?} RightStickX value is {}", gamepad, right_stick_x);
-            }
+
+            velocity.update_velocity(Vec2::new(left_stick_x, left_stick_y));
+            let translation = velocity.0 * time.delta_seconds;
+
+            *transform.translation_mut().x_mut() += player.move_speed * translation.x();
+            *transform.translation_mut().y_mut() += player.move_speed * translation.y();
         }
     }
 }
