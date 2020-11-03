@@ -1,4 +1,4 @@
-use bevy::input::gamepad::{Gamepad, GamepadButton, GamepadEvent, GamepadEventType};
+use bevy::input::gamepad::{Gamepad, GamepadEvent, GamepadEventType};
 use bevy::prelude::*;
 use std::collections::HashSet;
 

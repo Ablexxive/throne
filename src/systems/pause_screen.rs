@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::common::Paused;
+use crate::components::Paused;
 
 pub struct PauseScreenItem;
 

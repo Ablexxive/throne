@@ -1,12 +1,10 @@
 use bevy::prelude::*;
 
-mod common;
-mod gamepad_input;
-mod pause_screen;
+mod components;
+mod systems;
 
-use common::*;
-use gamepad_input::*;
-use pause_screen::*;
+use crate::components::*;
+use crate::systems::*;
 
 fn main() {
     App::build()
@@ -65,39 +63,6 @@ fn setup(
             ..Default::default()
         })
         .with(PauseScreenItem);
-}
-
-pub struct Player {
-    pub move_speed: f32,
-}
-
-impl Player {
-    pub fn new(move_speed: f32) -> Self {
-        Self { move_speed }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Velocity(pub Vec2);
-
-impl Velocity {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self(Vec2::new(x, y))
-    }
-
-    pub fn zero() -> Self {
-        Self::new(0.0, 0.0)
-    }
-
-    pub fn update_velocity(&mut self, new_velocity: Vec2) {
-        self.0 = new_velocity;
-    }
-}
-
-impl From<Vec2> for Velocity {
-    fn from(val: Vec2) -> Self {
-        Self(val)
-    }
 }
 
 fn spawn_player(mut commands: Commands, sprite_material: Res<SpritePlaceholderMaterial>) {
