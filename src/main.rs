@@ -19,6 +19,7 @@ fn main() {
         .add_startup_system(setup.system())
         .add_startup_stage("spawn_player")
         .add_startup_system_to_stage("spawn_player", spawn_player.system())
+        .add_system(animate_sprite_system.system())
         .add_system(connection_system.system())
         .add_system(pause.system())
         .add_system(player_movement.system())
@@ -65,13 +66,27 @@ fn setup(
         .with(PauseScreenItem);
 }
 
-fn spawn_player(mut commands: Commands, sprite_material: Res<SpritePlaceholderMaterial>) {
+fn spawn_player(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut textures: ResMut<Assets<Texture>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+) {
+    let idle_anim_handle = asset_server
+        .load_sync(&mut textures, "assets/sprites/whisper.png")
+        .unwrap();
+
+    let texture = textures.get(&idle_anim_handle).unwrap();
+    let texture_atlas = TextureAtlas::from_grid(idle_anim_handle, texture.size, 4, 1);
+    let texture_atlas_handle = texture_atlases.add(texture_atlas);
+
     commands
-        .spawn(SpriteComponents {
-            material: sprite_material.0.clone(),
-            sprite: Sprite::new(Vec2::new(10.0, 10.0)),
+        .spawn(SpriteSheetComponents {
+            texture_atlas: texture_atlas_handle,
+            transform: Transform::from_scale(6.75),
             ..Default::default()
         })
+        .with(Timer::from_seconds(0.225, true))
         .with(Velocity::zero())
         .with(Player::new(800.0));
 }
