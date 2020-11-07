@@ -13,12 +13,12 @@ pub fn pause(
         paused.0 = !paused.0;
         if paused.0 {
             // Show elements on pause screen.
-            for (mut draw_component, _filter) in &mut query.iter() {
+            for (mut draw_component, _filter) in query.iter_mut() {
                 draw_component.is_visible = true;
             }
         } else {
             // Hide elements on pause screen.
-            for (mut draw_component, _filter) in &mut query.iter() {
+            for (mut draw_component, _filter) in query.iter_mut() {
                 draw_component.is_visible = false;
             }
         }

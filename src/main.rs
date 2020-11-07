@@ -18,14 +18,13 @@ fn main() {
         .add_resource(Paused(false))
         .add_resource(GamepadLobby::default())
         .add_startup_system(setup.system())
-        .add_startup_stage("spawn_entities")
-        .add_startup_system_to_stage("spawn_entities", spawn_player.system())
-        .add_startup_system_to_stage("spawn_entities", spawn_enemies.system())
+        .add_startup_system(spawn_player.system())
+        .add_startup_system(spawn_enemies.system())
         .add_system(animate_sprite_system.system())
         .add_system(connection_system.system())
         .add_system(pause.system())
         .add_system(player_movement.system())
-        .add_default_plugins()
+        .add_plugins(DefaultPlugins)
         .run();
 }
 
@@ -52,7 +51,8 @@ fn setup(
             },
             text: Text {
                 value: "Pause".to_string(),
-                font: asset_server.load("assets/fonts/SFNS.ttf").unwrap(),
+                //font: asset_server.load("assets/fonts/SFNS.ttf"),
+                font: asset_server.load("fonts/SFNS.ttf"),
                 style: TextStyle {
                     font_size: 200.0,
                     color: Color::WHITE,
@@ -71,21 +71,20 @@ fn setup(
 fn spawn_player(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut textures: ResMut<Assets<Texture>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
-    let idle_anim_handle = asset_server
-        .load_sync(&mut textures, "assets/sprites/whisper.png")
-        .unwrap();
+    let idle_anim_handle = asset_server.load("sprites/whisper.png");
 
-    let texture = textures.get(&idle_anim_handle).unwrap();
-    let texture_atlas = TextureAtlas::from_grid(idle_anim_handle, texture.size, 4, 1);
+    // TODO(Sahil) - The textures here are loaded async in the background, so you can't yet access
+    // `texture.size`. Might be worth generating some sort of metadata file to hold that
+    // information.
+    let texture_atlas = TextureAtlas::from_grid(idle_anim_handle, Vec2::new(32.0, 32.0), 4, 1);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     commands
         .spawn(SpriteSheetComponents {
             texture_atlas: texture_atlas_handle,
-            transform: Transform::from_scale(6.75),
+            transform: Transform::from_scale(Vec3::new(6.75, 6.75, 1.0)),
             ..Default::default()
         })
         .with(Timer::from_seconds(0.225, true))
@@ -96,15 +95,11 @@ fn spawn_player(
 fn spawn_enemies(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut textures: ResMut<Assets<Texture>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
-    let idle_anim_handle = asset_server
-        .load_sync(&mut textures, "assets/sprites/evil_whisper.png")
-        .unwrap();
+    let idle_anim_handle = asset_server.load("sprites/evil_whisper.png");
 
-    let texture = textures.get(&idle_anim_handle).unwrap();
-    let texture_atlas = TextureAtlas::from_grid(idle_anim_handle, texture.size, 4, 1);
+    let texture_atlas = TextureAtlas::from_grid(idle_anim_handle, Vec2::new(32.0, 32.0), 4, 1);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     let mut rng = rand::thread_rng();
@@ -112,12 +107,12 @@ fn spawn_enemies(
         let anim_timer = rng.gen_range(0.175, 0.300);
         commands
             .spawn(SpriteSheetComponents {
-                texture_atlas: texture_atlas_handle,
-                transform: Transform::from_scale(6.75).with_translation(Vec3::new(
-                    ((enemy_idx as f32) * 150.0) - 300.0,
-                    300.0,
-                    0.0,
-                )),
+                texture_atlas: texture_atlas_handle.clone(),
+                transform: Transform {
+                    scale: Vec3::new(6.75, 6.75, 1.0),
+                    translation: Vec3::new(((enemy_idx as f32) * 150.0) - 300.0, 300.0, 0.0),
+                    ..Default::default()
+                },
                 ..Default::default()
             })
             .with(Timer::from_seconds(anim_timer, true))
@@ -138,50 +133,50 @@ fn player_movement(
         return;
     }
 
-    for (player, mut transform, mut velocity) in &mut player_info.iter() {
+    for (player, mut transform, mut velocity) in player_info.iter_mut() {
         // Check Keyboard input
         if keyboard_input.pressed(KeyCode::Left) {
-            *transform.translation_mut().x_mut() -= 10.;
+            *transform.translation.x_mut() -= 10.;
         }
         if keyboard_input.pressed(KeyCode::Right) {
-            *transform.translation_mut().x_mut() += 10.;
+            *transform.translation.x_mut() += 10.;
         }
         if keyboard_input.pressed(KeyCode::Down) {
-            *transform.translation_mut().y_mut() -= 10.;
+            *transform.translation.y_mut() -= 10.;
         }
         if keyboard_input.pressed(KeyCode::Up) {
-            *transform.translation_mut().y_mut() += 10.;
+            *transform.translation.y_mut() += 10.;
         }
 
         // Check Gamepad input
         for gamepad in lobby.gamepads.iter().cloned() {
             // Tempoaray, remove when these buttons have other uses.
             if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::East)) {
-                *transform.translation_mut().x_mut() += 10.;
+                *transform.translation.x_mut() += 10.;
             }
             if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::West)) {
-                *transform.translation_mut().x_mut() -= 10.;
+                *transform.translation.x_mut() -= 10.;
             }
             if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::North)) {
-                *transform.translation_mut().y_mut() += 10.;
+                *transform.translation.y_mut() += 10.;
             }
             if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::South)) {
-                *transform.translation_mut().y_mut() -= 10.;
+                *transform.translation.y_mut() -= 10.;
             }
 
             // Sample of code to read stick input.
             let left_stick_x = axes
-                .get(&GamepadAxis(gamepad, GamepadAxisType::LeftStickX))
+                .get(GamepadAxis(gamepad, GamepadAxisType::LeftStickX))
                 .unwrap();
             let left_stick_y = axes
-                .get(&GamepadAxis(gamepad, GamepadAxisType::LeftStickY))
+                .get(GamepadAxis(gamepad, GamepadAxisType::LeftStickY))
                 .unwrap();
 
             velocity.update_velocity(Vec2::new(left_stick_x, left_stick_y));
             let translation = velocity.0 * time.delta_seconds;
 
-            *transform.translation_mut().x_mut() += player.move_speed * translation.x();
-            *transform.translation_mut().y_mut() += player.move_speed * translation.y();
+            *transform.translation.x_mut() += player.move_speed * translation.x();
+            *transform.translation.y_mut() += player.move_speed * translation.y();
         }
     }
 }

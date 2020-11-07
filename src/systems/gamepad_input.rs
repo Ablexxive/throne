@@ -22,6 +22,7 @@ pub fn connection_system(
                 lobby.gamepads.remove(gamepad);
                 println!("{:?} Disconnected", gamepad);
             }
+            _ => continue,
         }
     }
 }
