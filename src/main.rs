@@ -1,4 +1,13 @@
 use bevy::prelude::*;
+use bevy_rapier2d::physics::{RapierPhysicsPlugin, RigidBodyHandleComponent};
+use bevy_rapier2d::rapier::dynamics::{RigidBodyBuilder, RigidBodySet};
+use bevy_rapier2d::rapier::geometry::ColliderBuilder;
+use bevy_rapier2d::rapier::na::{coordinates::XY, Isometry2, Vector2};
+
+// Rapier Notes -
+// RapierPhysicsPlugin - will register a system for building bodies, perform one timestep, and
+// write ridgid-bodies postions back into translation and rotation components
+
 use rand::Rng;
 
 mod components;
@@ -19,11 +28,12 @@ fn main() {
         .add_resource(GamepadLobby::default())
         .add_startup_system(setup.system())
         .add_startup_system(spawn_player.system())
-        .add_startup_system(spawn_enemies.system())
+        //.add_startup_system(spawn_enemies.system())
         .add_system(animate_sprite_system.system())
         .add_system(connection_system.system())
         .add_system(pause.system())
         .add_system(player_movement.system())
+        .add_plugin(RapierPhysicsPlugin)
         .add_plugins(DefaultPlugins)
         .run();
 }
@@ -89,6 +99,8 @@ fn spawn_player(
         })
         .with(Timer::from_seconds(0.225, true))
         .with(Velocity::zero())
+        .with(RigidBodyBuilder::new_dynamic().can_sleep(false))
+        .with(ColliderBuilder::cuboid(32.0, 32.0))
         .with(Player::new(800.0));
 }
 
@@ -116,7 +128,9 @@ fn spawn_enemies(
                 ..Default::default()
             })
             .with(Timer::from_seconds(anim_timer, true))
-            .with(Velocity::zero());
+            .with(Velocity::zero())
+            .with(RigidBodyBuilder::new_static())
+            .with(ColliderBuilder::cuboid(32.0 * 6.75, 1.0));
     }
 }
 
@@ -127,41 +141,48 @@ fn player_movement(
     lobby: Res<GamepadLobby>,
     paused: Res<Paused>,
     time: Res<Time>,
-    mut player_info: Query<(&Player, &mut Transform, &mut Velocity)>,
+    mut rigid_bodies: ResMut<RigidBodySet>,
+    //mut player_transform: Query<(&Player, &mut Transform, &mut Velocity)>,
+    mut player_info: Query<(
+        &Player,
+        &mut RigidBodyHandleComponent,
+        &mut Velocity,
+        &mut Transform,
+    )>,
 ) {
     if paused.0 {
         return;
     }
-
-    for (player, mut transform, mut velocity) in player_info.iter_mut() {
+    //for (player, mut transform, mut velocity) in player_info.iter_mut() {
+    for (player, mut rigid_body_component, mut velocity, mut transform) in player_info.iter_mut() {
         // Check Keyboard input
         if keyboard_input.pressed(KeyCode::Left) {
-            *transform.translation.x_mut() -= 10.;
+            //*transform.translation.x_mut() -= 10.;
         }
         if keyboard_input.pressed(KeyCode::Right) {
-            *transform.translation.x_mut() += 10.;
+            //*transform.translation.x_mut() += 10.;
         }
         if keyboard_input.pressed(KeyCode::Down) {
-            *transform.translation.y_mut() -= 10.;
+            //*transform.translation.y_mut() -= 10.;
         }
         if keyboard_input.pressed(KeyCode::Up) {
-            *transform.translation.y_mut() += 10.;
+            //*transform.translation.y_mut() += 10.;
         }
 
         // Check Gamepad input
         for gamepad in lobby.gamepads.iter().cloned() {
             // Tempoaray, remove when these buttons have other uses.
             if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::East)) {
-                *transform.translation.x_mut() += 10.;
+                //*transform.translation.x_mut() += 10.;
             }
             if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::West)) {
-                *transform.translation.x_mut() -= 10.;
+                //*transform.translation.x_mut() -= 10.;
             }
             if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::North)) {
-                *transform.translation.y_mut() += 10.;
+                //*transform.translation.y_mut() += 10.;
             }
             if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::South)) {
-                *transform.translation.y_mut() -= 10.;
+                //*transform.translation.y_mut() -= 10.;
             }
 
             // Sample of code to read stick input.
@@ -172,11 +193,27 @@ fn player_movement(
                 .get(GamepadAxis(gamepad, GamepadAxisType::LeftStickY))
                 .unwrap();
 
-            velocity.update_velocity(Vec2::new(left_stick_x, left_stick_y));
-            let translation = velocity.0 * time.delta_seconds;
+            //velocity.update_velocity(Vec2::new(left_stick_x, left_stick_y));
+            //dbg!(&velocity);
+            if let Some(mut rb) = rigid_bodies.get_mut(rigid_body_component.handle()) {
+                //rb.set_position(Isometry2::new(Vector2::new(300.0, 300.0), 0.0));
+                //*rb.linvel = XY {
+                //x: left_stick_x * player.move_speed,
+                //y: left_stick_y * player.move_speed,
+                //};
+                rb.linvel = Vector2::new(
+                    (left_stick_x * player.move_speed),
+                    (left_stick_y * player.move_speed),
+                );
+                //dbg!(&rb.linvel);
+                //dbg!(&rb.position);
+                //dbg!(&transform);
+                //*rb.linvel = Vector2::new(velocity.x(), velocity.y());
+            }
+            //let translation = velocity.0 * time.delta_seconds;
 
-            *transform.translation.x_mut() += player.move_speed * translation.x();
-            *transform.translation.y_mut() += player.move_speed * translation.y();
+            //*transform.translation.x_mut() += player.move_speed * translation.x();
+            //*transform.translation.y_mut() += player.move_speed * translation.y();
         }
     }
 }
