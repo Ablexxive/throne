@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_rapier2d::physics::{RapierPhysicsPlugin, RigidBodyHandleComponent};
+use bevy_rapier2d::physics::{RapierConfiguration, RapierPhysicsPlugin, RigidBodyHandleComponent};
 use bevy_rapier2d::rapier::dynamics::{RigidBodyBuilder, RigidBodySet};
 use bevy_rapier2d::rapier::geometry::ColliderBuilder;
 use bevy_rapier2d::rapier::na::Vector2;
@@ -24,7 +24,7 @@ fn main() {
         .add_resource(GamepadLobby::default())
         .add_startup_system(setup.system())
         .add_startup_system(spawn_player.system())
-        //.add_startup_system(spawn_enemies.system())
+        .add_startup_system(spawn_enemies.system())
         .add_system(animate_sprite_system.system())
         .add_system(connection_system.system())
         .add_system(pause.system())
@@ -37,9 +37,12 @@ fn main() {
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    mut rapier_config: ResMut<RapierConfiguration>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2dComponents::default());
+
+    rapier_config.gravity = Vector2::zeros();
 
     // Initial Resources
     commands.insert_resource(SpritePlaceholderMaterial(
@@ -86,15 +89,20 @@ fn spawn_player(
     let texture_atlas = TextureAtlas::from_grid(idle_anim_handle, Vec2::new(32.0, 32.0), 4, 1);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
+    let scale_val = 6.75;
     commands
         .spawn(SpriteSheetComponents {
             texture_atlas: texture_atlas_handle,
-            transform: Transform::from_scale(Vec3::new(6.75, 6.75, 1.0)),
+            transform: Transform::from_scale(Vec3::new(scale_val, scale_val, 1.0)),
             ..Default::default()
         })
         .with(Timer::from_seconds(0.225, true))
         .with(Velocity::zero())
-        .with(RigidBodyBuilder::new_dynamic().can_sleep(false))
+        .with(
+            RigidBodyBuilder::new_dynamic()
+                .can_sleep(false)
+                .angular_damping(std::f32::INFINITY),
+        )
         .with(ColliderBuilder::cuboid(32.0, 32.0))
         .with(Player::new(800.0));
 }
@@ -109,6 +117,7 @@ fn spawn_enemies(
     let texture_atlas = TextureAtlas::from_grid(idle_anim_handle, Vec2::new(32.0, 32.0), 4, 1);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
+    let scale_val = 6.75;
     let mut rng = rand::thread_rng();
     for enemy_idx in 1..=3 {
         let anim_timer = rng.gen_range(0.175, 0.300);
@@ -116,16 +125,20 @@ fn spawn_enemies(
             .spawn(SpriteSheetComponents {
                 texture_atlas: texture_atlas_handle.clone(),
                 transform: Transform {
-                    scale: Vec3::new(6.75, 6.75, 1.0),
-                    translation: Vec3::new(((enemy_idx as f32) * 150.0) - 300.0, 300.0, 0.0),
+                    scale: Vec3::new(scale_val, scale_val, 1.0),
                     ..Default::default()
                 },
                 ..Default::default()
             })
             .with(Timer::from_seconds(anim_timer, true))
             .with(Velocity::zero())
-            .with(RigidBodyBuilder::new_static())
-            .with(ColliderBuilder::cuboid(32.0 * 6.75, 1.0));
+            .with(
+                RigidBodyBuilder::new_dynamic()
+                    .translation(((enemy_idx as f32) * 150.0) - 300.0, 300.0)
+                    .angular_damping(std::f32::INFINITY)
+                    .linear_damping(std::f32::INFINITY),
+            )
+            .with(ColliderBuilder::cuboid(32.0, 32.0));
     }
 }
 
