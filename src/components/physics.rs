@@ -11,10 +11,6 @@ impl Velocity {
     pub fn zero() -> Self {
         Self::new(0.0, 0.0)
     }
-
-    pub fn update_velocity(&mut self, new_velocity: Vec2) {
-        self.0 = new_velocity;
-    }
 }
 
 impl From<Vec2> for Velocity {

@@ -3,6 +3,7 @@ use bevy_rapier2d::physics::{RapierConfiguration, RapierPhysicsPlugin, RigidBody
 use bevy_rapier2d::rapier::dynamics::{RigidBodyBuilder, RigidBodySet};
 use bevy_rapier2d::rapier::geometry::ColliderBuilder;
 use bevy_rapier2d::rapier::na::Vector2;
+use bevy_rapier2d::render::RapierRenderPlugin;
 
 use rand::Rng;
 
@@ -30,6 +31,7 @@ fn main() {
         .add_system(pause.system())
         .add_system(player_movement.system())
         .add_plugin(RapierPhysicsPlugin)
+        .add_plugin(RapierRenderPlugin)
         .add_plugins(DefaultPlugins)
         .run();
 }
@@ -86,10 +88,18 @@ fn spawn_player(
     // TODO(Sahil) - The textures here are loaded async in the background, so you can't yet access
     // `texture.size`. Might be worth generating some sort of metadata file to hold that
     // information.
-    let texture_atlas = TextureAtlas::from_grid(idle_anim_handle, Vec2::new(32.0, 32.0), 4, 1);
+    let scale_val = 6.75;
+    let sprite_size_x = 16.0;
+    let sprite_size_y = 23.0;
+
+    let texture_atlas = TextureAtlas::from_grid(
+        idle_anim_handle,
+        Vec2::new(sprite_size_x, sprite_size_y),
+        4,
+        1,
+    );
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
-    let scale_val = 6.75;
     commands
         .spawn(SpriteSheetComponents {
             texture_atlas: texture_atlas_handle,
@@ -103,7 +113,10 @@ fn spawn_player(
                 .can_sleep(false)
                 .angular_damping(std::f32::INFINITY),
         )
-        .with(ColliderBuilder::cuboid(32.0, 32.0))
+        .with(ColliderBuilder::cuboid(
+            (sprite_size_x / 2.0) * scale_val,
+            (sprite_size_y / 2.0) * scale_val,
+        ))
         .with(Player::new(800.0));
 }
 
@@ -114,10 +127,18 @@ fn spawn_enemies(
 ) {
     let idle_anim_handle = asset_server.load("sprites/evil_whisper.png");
 
-    let texture_atlas = TextureAtlas::from_grid(idle_anim_handle, Vec2::new(32.0, 32.0), 4, 1);
+    let sprite_size_x = 16.0;
+    let sprite_size_y = 23.0;
+    let scale_val = 6.75;
+
+    let texture_atlas = TextureAtlas::from_grid(
+        idle_anim_handle,
+        Vec2::new(sprite_size_x, sprite_size_y),
+        4,
+        1,
+    );
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
-    let scale_val = 6.75;
     let mut rng = rand::thread_rng();
     for enemy_idx in 1..=3 {
         let anim_timer = rng.gen_range(0.175, 0.300);
@@ -136,9 +157,12 @@ fn spawn_enemies(
                 RigidBodyBuilder::new_dynamic()
                     .translation(((enemy_idx as f32) * 150.0) - 300.0, 300.0)
                     .angular_damping(std::f32::INFINITY)
-                    .linear_damping(std::f32::INFINITY),
+                    .linear_damping(10.0),
             )
-            .with(ColliderBuilder::cuboid(32.0, 32.0));
+            .with(ColliderBuilder::cuboid(
+                (sprite_size_x / 2.0) * scale_val,
+                (sprite_size_y / 2.0) * scale_val,
+            ));
     }
 }
 
