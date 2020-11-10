@@ -21,18 +21,19 @@ fn main() {
             height: 2000,
             ..Default::default()
         })
+        .add_plugin(RapierPhysicsPlugin)
+        .add_plugin(RapierRenderPlugin)
         .add_resource(Paused(false))
         .add_resource(GamepadLobby::default())
         .add_startup_system(setup.system())
         .add_startup_system(spawn_player.system())
         .add_startup_system(spawn_enemies.system())
         .add_startup_system(spawn_walls.system())
+        .add_system_to_stage_front(stage::PRE_UPDATE, remove_rotation.system())
         .add_system(animate_sprite_system.system())
         .add_system(connection_system.system())
         .add_system(pause.system())
         .add_system(player_movement.system())
-        .add_plugin(RapierPhysicsPlugin)
-        .add_plugin(RapierRenderPlugin)
         .add_plugins(DefaultPlugins)
         .run();
 }
@@ -84,6 +85,7 @@ fn spawn_player(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
+    eprintln!("Spawning player.");
     let idle_anim_handle = asset_server.load("sprites/whisper.png");
 
     // TODO(Sahil) - The textures here are loaded async in the background, so you can't yet access
@@ -117,6 +119,7 @@ fn spawn_player(
             (sprite_size_x / 2.0) * scale_val,
             (sprite_size_y / 2.0) * scale_val,
         ))
+        .with(LockRotation)
         .with(Player::new(800.0));
 }
 
@@ -125,6 +128,7 @@ fn spawn_enemies(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
+    eprintln!("Spawning enemies.");
     let idle_anim_handle = asset_server.load("sprites/evil_whisper.png");
 
     let sprite_size_x = 16.0;
@@ -158,6 +162,7 @@ fn spawn_enemies(
                     .angular_damping(std::f32::INFINITY)
                     .linear_damping(10.0),
             )
+            .with(LockRotation)
             .with(ColliderBuilder::cuboid(
                 (sprite_size_x / 2.0) * scale_val,
                 (sprite_size_y / 2.0) * scale_val,
@@ -166,6 +171,7 @@ fn spawn_enemies(
 }
 
 fn spawn_walls(mut commands: Commands) {
+    eprintln!("Spawning walls.");
     let wall_side = 16.0;
     let scale_val = 6.75;
 
@@ -182,11 +188,16 @@ fn spawn_walls(mut commands: Commands) {
             ));
     }
 }
+
 fn player_movement(
+    mut commands: Commands,
     axes: Res<Axis<GamepadAxis>>,
+    button_inputs: Res<Input<GamepadButton>>,
     keyboard_input: Res<Input<KeyCode>>,
     lobby: Res<GamepadLobby>,
     paused: Res<Paused>,
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut rigid_bodies: ResMut<RigidBodySet>,
     player_info: Query<(&Player, &RigidBodyHandleComponent)>,
 ) {
@@ -197,9 +208,48 @@ fn player_movement(
     for (player, rigid_body_component) in player_info.iter() {
         // First check Gamepad input
         if let Some(gamepad) = lobby.gamepads.iter().cloned().next() {
-            // TODO(Sahil) - Tempoaray reference, remove when these buttons have other uses.
-            //button_inputs: Res<Input<GamepadButton>>,
-            //if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::East)) {}
+            // TODO(Sahil) - Have this shoot off an event which spawns enemies instead of doing it
+            // like this.
+            if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::East)) {
+                let idle_anim_handle = asset_server.load("sprites/evil_whisper.png");
+
+                let sprite_size_x = 16.0;
+                let sprite_size_y = 23.0;
+                let scale_val = 6.75;
+
+                let texture_atlas = TextureAtlas::from_grid(
+                    idle_anim_handle,
+                    Vec2::new(sprite_size_x, sprite_size_y),
+                    4,
+                    1,
+                );
+                let texture_atlas_handle = texture_atlases.add(texture_atlas);
+
+                let mut rng = rand::thread_rng();
+                let anim_timer = rng.gen_range(0.175, 0.300);
+                commands
+                    .spawn(SpriteSheetComponents {
+                        texture_atlas: texture_atlas_handle.clone(),
+                        transform: Transform {
+                            scale: Vec3::new(scale_val, scale_val, 1.0),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    })
+                    .with(Timer::from_seconds(anim_timer, true))
+                    .with(
+                        RigidBodyBuilder::new_dynamic()
+                            .translation(300.0, 500.0)
+                            .angular_damping(std::f32::INFINITY)
+                            .linear_damping(10.0),
+                    )
+                    .with(LockRotation)
+                    .with(ColliderBuilder::cuboid(
+                        (sprite_size_x / 2.0) * scale_val,
+                        (sprite_size_y / 2.0) * scale_val,
+                    ));
+            }
+
             let left_stick_x = axes
                 .get(GamepadAxis(gamepad, GamepadAxisType::LeftStickX))
                 .unwrap();
