@@ -91,7 +91,7 @@ fn spawn_player(
     // TODO(Sahil) - The textures here are loaded async in the background, so you can't yet access
     // `texture.size`. Might be worth generating some sort of metadata file to hold that
     // information.
-    let scale_val = 6.75;
+    let scale_val = 5.0;
     let sprite_size_x = 16.0;
     let sprite_size_y = 23.0;
 
@@ -133,7 +133,7 @@ fn spawn_enemies(
 
     let sprite_size_x = 16.0;
     let sprite_size_y = 23.0;
-    let scale_val = 6.75;
+    let scale_val = 5.0;
 
     let texture_atlas = TextureAtlas::from_grid(
         idle_anim_handle,
@@ -173,7 +173,7 @@ fn spawn_enemies(
 fn spawn_walls(mut commands: Commands) {
     eprintln!("Spawning walls.");
     let wall_side = 16.0;
-    let scale_val = 6.75;
+    let scale_val = 5.0;
 
     for wall_idx in 1..=3 {
         commands
@@ -199,23 +199,38 @@ fn player_movement(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut rigid_bodies: ResMut<RigidBodySet>,
-    player_info: Query<(&Player, &RigidBodyHandleComponent)>,
+    player_info: Query<(&Player, &Transform, &RigidBodyHandleComponent)>,
 ) {
     if paused.0 {
         return;
     }
 
-    for (player, rigid_body_component) in player_info.iter() {
+    for (player, player_transform, rigid_body_component) in player_info.iter() {
         // First check Gamepad input
         if let Some(gamepad) = lobby.gamepads.iter().cloned().next() {
             // TODO(Sahil) - Have this shoot off an event which spawns enemies instead of doing it
             // like this.
-            if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::East)) {
+            if button_inputs.just_pressed(GamepadButton(gamepad, GamepadButtonType::North)) {
+                let wall_side = 16.0;
+                let scale_val = 5.0;
+
+                commands
+                    .spawn((Transform::default(),))
+                    .with(RigidBodyBuilder::new_kinematic().translation(
+                        player_transform.translation.x(),
+                        player_transform.translation.y(),
+                    ))
+                    .with(ColliderBuilder::cuboid(
+                        (wall_side / 2.0) * scale_val,
+                        (wall_side / 2.0) * scale_val,
+                    ));
+            }
+            if button_inputs.just_pressed(GamepadButton(gamepad, GamepadButtonType::East)) {
                 let idle_anim_handle = asset_server.load("sprites/evil_whisper.png");
 
                 let sprite_size_x = 16.0;
                 let sprite_size_y = 23.0;
-                let scale_val = 6.75;
+                let scale_val = 5.0;
 
                 let texture_atlas = TextureAtlas::from_grid(
                     idle_anim_handle,
