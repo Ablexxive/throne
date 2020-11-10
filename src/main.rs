@@ -26,6 +26,7 @@ fn main() {
         .add_startup_system(setup.system())
         .add_startup_system(spawn_player.system())
         .add_startup_system(spawn_enemies.system())
+        .add_startup_system(spawn_walls.system())
         .add_system(animate_sprite_system.system())
         .add_system(connection_system.system())
         .add_system(pause.system())
@@ -107,7 +108,6 @@ fn spawn_player(
             ..Default::default()
         })
         .with(Timer::from_seconds(0.225, true))
-        .with(Velocity::zero())
         .with(
             RigidBodyBuilder::new_dynamic()
                 .can_sleep(false)
@@ -152,7 +152,6 @@ fn spawn_enemies(
                 ..Default::default()
             })
             .with(Timer::from_seconds(anim_timer, true))
-            .with(Velocity::zero())
             .with(
                 RigidBodyBuilder::new_dynamic()
                     .translation(((enemy_idx as f32) * 150.0) - 300.0, 300.0)
@@ -166,6 +165,23 @@ fn spawn_enemies(
     }
 }
 
+fn spawn_walls(mut commands: Commands) {
+    let wall_side = 16.0;
+    let scale_val = 6.75;
+
+    for wall_idx in 1..=3 {
+        commands
+            .spawn((Transform::default(),))
+            .with(
+                RigidBodyBuilder::new_kinematic()
+                    .translation(((wall_idx as f32) * 150.0) - 300.0, -300.0),
+            )
+            .with(ColliderBuilder::cuboid(
+                (wall_side / 2.0) * scale_val,
+                (wall_side / 2.0) * scale_val,
+            ));
+    }
+}
 fn player_movement(
     axes: Res<Axis<GamepadAxis>>,
     keyboard_input: Res<Input<KeyCode>>,
