@@ -23,6 +23,7 @@ fn main() {
             ..Default::default()
         })
         .add_plugin(RapierPhysicsPlugin)
+        .add_plugin(ThroneCameraPlugin)
         //.add_plugin(RapierRenderPlugin)
         .add_resource(Paused(false))
         .add_resource(GamepadLobby::default())
@@ -42,25 +43,12 @@ fn main() {
         .run();
 }
 
-//TODO(Sahil) - This struct is temporary, find a better way.
-struct PlayerCamera;
-
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut rapier_config: ResMut<RapierConfiguration>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands
-        .spawn(Camera2dComponents::default())
-        .with(PlayerCamera);
-    //.spawn(Camera2dComponents {
-    //transform: Transform {
-    //scale: Vec3::new(-5.0, -5.0, 0.0),
-    //..Default::default()
-    //},
-    //..Default::default()
-    //})
     commands.spawn(TextComponents {
         style: Style {
             align_self: AlignSelf::FlexEnd,
@@ -85,7 +73,6 @@ fn setup(
     ));
 
     // Pause Menu Elements
-    commands.spawn(UiCameraComponents::default());
     commands
         .spawn(TextComponents {
             style: Style {
