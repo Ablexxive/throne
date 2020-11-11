@@ -4,7 +4,6 @@ use bevy_rapier2d::physics::{RapierConfiguration, RapierPhysicsPlugin, RigidBody
 use bevy_rapier2d::rapier::dynamics::{RigidBodyBuilder, RigidBodySet};
 use bevy_rapier2d::rapier::geometry::ColliderBuilder;
 use bevy_rapier2d::rapier::na::Vector2;
-//use bevy_rapier2d::render::RapierRenderPlugin;
 
 use rand::Rng;
 
@@ -24,8 +23,6 @@ fn main() {
         })
         .add_plugin(RapierPhysicsPlugin)
         .add_plugin(ThroneCameraPlugin)
-        //.add_plugin(RapierRenderPlugin)
-        .add_resource(Paused(false))
         .add_resource(GamepadLobby::default())
         .add_startup_system(setup.system())
         .add_startup_stage("spawn_entities")
@@ -36,7 +33,6 @@ fn main() {
         .add_system(scene_management.thread_local_system())
         .add_system(animate_sprite_system.system())
         .add_system(connection_system.system())
-        .add_system(pause.system())
         .add_system(player_movement.system())
         .add_system_to_stage(stage::POST_UPDATE, debug_ui_update.system())
         .add_plugins(DefaultPlugins)
@@ -71,31 +67,6 @@ fn setup(
     commands.insert_resource(SpritePlaceholderMaterial(
         materials.add(Color::rgb(0.7, 0.7, 0.7).into()),
     ));
-
-    // Pause Menu Elements
-    commands
-        .spawn(TextComponents {
-            style: Style {
-                align_self: AlignSelf::Baseline,
-                size: bevy::prelude::Size::new(Val::Px(200.0), Val::Px(200.0)),
-                ..Default::default()
-            },
-            text: Text {
-                value: "Pause".to_string(),
-                font: asset_server.load("fonts/SFNS.ttf"),
-                style: TextStyle {
-                    font_size: 200.0,
-                    color: Color::WHITE,
-                },
-                ..Default::default()
-            },
-            draw: Draw {
-                is_visible: false,
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .with(PauseScreenItem);
 }
 
 fn spawn_player(
@@ -234,7 +205,6 @@ fn player_movement(
     button_inputs: Res<Input<GamepadButton>>,
     keyboard_input: Res<Input<KeyCode>>,
     lobby: Res<GamepadLobby>,
-    paused: Res<Paused>,
     asset_server: Res<AssetServer>,
     wall_material: Res<SpritePlaceholderMaterial>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
@@ -242,10 +212,6 @@ fn player_movement(
     player_info: Query<(&Player, &Transform, &RigidBodyHandleComponent)>,
     mut camera_info: Query<(&mut Camera, &mut Transform, &mut PlayerCamera)>,
 ) {
-    if paused.0 {
-        return;
-    }
-
     for (player, player_transform, rigid_body_component) in player_info.iter() {
         // First check Gamepad input
         if let Some(gamepad) = lobby.gamepads.iter().cloned().next() {
