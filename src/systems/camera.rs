@@ -1,14 +1,16 @@
 use bevy::prelude::*;
 
+use crate::Player;
+
 pub struct ThroneCameraPlugin;
 
+/// Plugin to spawn camera, set it up, and update it to center on player.
 impl Plugin for ThroneCameraPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_startup_system(spawn_cameras.system())
             .add_startup_stage("setup_camera")
-            .add_startup_system_to_stage("setup_camera", setup_camera.system());
-        // add system to update camera on player
-        //.add_system_to_stage(stage::POST_UPDATE, physics::sync_transform_system.system())
+            .add_startup_system_to_stage("setup_camera", setup_camera.system())
+            .add_system_to_stage(stage::POST_UPDATE, update_camera.system());
     }
 }
 
@@ -23,11 +25,7 @@ impl Default for PlayerCamera {
     }
 }
 
-// Create a plugin that has two systems,
-// one for spawning Camera and setting zoom,
-// one for updating the camera to follow player. stage::UPDATE, POST_UPDATE?
-// Maybe camera input controls here too?
-pub fn spawn_cameras(mut commands: Commands) {
+fn spawn_cameras(mut commands: Commands) {
     // Player Camera
     commands
         .spawn(Camera2dComponents::default())
@@ -37,9 +35,21 @@ pub fn spawn_cameras(mut commands: Commands) {
     commands.spawn(UiCameraComponents::default());
 }
 
-pub fn setup_camera(mut cam_transforms: Query<(&mut Transform, &mut PlayerCamera)>) {
+fn setup_camera(mut cam_transforms: Query<(&mut Transform, &mut PlayerCamera)>) {
     for (mut transform, player_camera) in cam_transforms.iter_mut() {
         *transform.scale.x_mut() = player_camera.zoom;
         *transform.scale.y_mut() = player_camera.zoom;
+    }
+}
+
+fn update_camera(
+    player_transforms: Query<(&Transform, &Player)>,
+    mut cam_transforms: Query<(&mut Transform, &mut PlayerCamera)>,
+) {
+    if let Some((player_transform, _player)) = player_transforms.iter().next() {
+        for (mut camera_transform, _player_camera) in cam_transforms.iter_mut() {
+            *camera_transform.translation.x_mut() = player_transform.translation.x();
+            *camera_transform.translation.y_mut() = player_transform.translation.y();
+        }
     }
 }
