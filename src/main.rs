@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::render::camera::Camera;
 use bevy_rapier2d::physics::{RapierConfiguration, RapierPhysicsPlugin, RigidBodyHandleComponent};
 use bevy_rapier2d::rapier::dynamics::{RigidBodyBuilder, RigidBodySet};
 use bevy_rapier2d::rapier::geometry::ColliderBuilder;
@@ -41,6 +42,9 @@ fn main() {
         .run();
 }
 
+//TODO(Sahil) - This struct is temporary, find a better way.
+struct PlayerCamera;
+
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -49,21 +53,29 @@ fn setup(
 ) {
     commands
         .spawn(Camera2dComponents::default())
-        .spawn(TextComponents {
-            style: Style {
-                align_self: AlignSelf::FlexEnd,
-                ..Default::default()
-            },
-            text: Text {
-                value: "Player Pos: -0.1234567890".to_string(),
-                font: asset_server.load("fonts/SFNS.ttf"),
-                style: TextStyle {
-                    font_size: 70.0,
-                    color: Color::BLACK,
-                },
-            },
+        .with(PlayerCamera);
+    //.spawn(Camera2dComponents {
+    //transform: Transform {
+    //scale: Vec3::new(-5.0, -5.0, 0.0),
+    //..Default::default()
+    //},
+    //..Default::default()
+    //})
+    commands.spawn(TextComponents {
+        style: Style {
+            align_self: AlignSelf::FlexEnd,
             ..Default::default()
-        });
+        },
+        text: Text {
+            value: "Player Pos: -0.1234567890".to_string(),
+            font: asset_server.load("fonts/SFNS.ttf"),
+            style: TextStyle {
+                font_size: 70.0,
+                color: Color::BLACK,
+            },
+        },
+        ..Default::default()
+    });
 
     rapier_config.gravity = Vector2::zeros();
 
@@ -110,7 +122,7 @@ fn spawn_player(
     // TODO(Sahil) - The textures here are loaded async in the background, so you can't yet access
     // `texture.size`. Might be worth generating some sort of metadata file to hold that
     // information.
-    let scale_val = 5.0;
+    let scale_val = 1.0;
     let sprite_size_x = 16.0;
     let sprite_size_y = 23.0;
 
@@ -139,7 +151,7 @@ fn spawn_player(
             (sprite_size_y / 2.0) * scale_val,
         ))
         .with(LockRotation)
-        .with(Player::new(800.0));
+        .with(Player::new(100.0));
 }
 
 fn spawn_enemies(
@@ -152,7 +164,7 @@ fn spawn_enemies(
 
     let sprite_size_x = 16.0;
     let sprite_size_y = 23.0;
-    let scale_val = 5.0;
+    let scale_val = 1.0;
 
     let texture_atlas = TextureAtlas::from_grid(
         idle_anim_handle,
@@ -211,7 +223,7 @@ fn spawn_walls(mut commands: Commands, wall_material: Res<SpritePlaceholderMater
     eprintln!("Spawning outside walls.");
     let unscaled_wall_width = 16.0;
     let unscaled_wall_length = 16.0;
-    let scale_val = 5.0;
+    let scale_val = 1.0;
     let wall_width = unscaled_wall_width * scale_val;
     let wall_length = unscaled_wall_length * scale_val;
 
@@ -241,6 +253,7 @@ fn player_movement(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut rigid_bodies: ResMut<RigidBodySet>,
     player_info: Query<(&Player, &Transform, &RigidBodyHandleComponent)>,
+    mut camera_info: Query<(&mut Camera, &mut Transform, &mut PlayerCamera)>,
 ) {
     if paused.0 {
         return;
@@ -253,7 +266,7 @@ fn player_movement(
             // like this.
             if button_inputs.just_pressed(GamepadButton(gamepad, GamepadButtonType::North)) {
                 let wall_side = 16.0;
-                let scale_val = 5.0;
+                let scale_val = 1.0;
 
                 commands
                     .spawn(SpriteComponents {
@@ -278,7 +291,7 @@ fn player_movement(
 
                 let sprite_size_x = 16.0;
                 let sprite_size_y = 23.0;
-                let scale_val = 5.0;
+                let scale_val = 1.0;
 
                 let texture_atlas = TextureAtlas::from_grid(
                     idle_anim_handle,
@@ -320,6 +333,20 @@ fn player_movement(
                         (sprite_size_x / 2.0) * scale_val,
                         (sprite_size_y / 2.0) * scale_val,
                     ));
+            }
+            if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::LeftTrigger)) {
+                for (_camera, mut transform, _player_camera) in camera_info.iter_mut() {
+                    *transform.scale.x_mut() += 0.01;
+                    *transform.scale.y_mut() += 0.01;
+                    eprintln!("Camera Scale: {}", transform.scale);
+                }
+            }
+            if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::RightTrigger)) {
+                for (_camera, mut transform, _player_camera) in camera_info.iter_mut() {
+                    *transform.scale.x_mut() -= 0.01;
+                    *transform.scale.y_mut() -= 0.01;
+                    eprintln!("Camera Scale: {}", transform.scale);
+                }
             }
 
             let left_stick_x = axes
