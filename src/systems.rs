@@ -1,6 +1,7 @@
 #[rustfmt::skip]
 pub use self::{
     anim::*,
+    debug_ui::*,
     gamepad_input::*,
     pause_screen::*,
     physics::*,
@@ -8,6 +9,7 @@ pub use self::{
 };
 
 mod anim;
+mod debug_ui;
 mod gamepad_input;
 mod pause_screen;
 mod physics;

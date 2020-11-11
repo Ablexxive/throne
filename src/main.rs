@@ -36,24 +36,9 @@ fn main() {
         .add_system(connection_system.system())
         .add_system(pause.system())
         .add_system(player_movement.system())
-        .add_system_to_stage(stage::POST_UPDATE, text_update_system.system())
+        .add_system_to_stage(stage::POST_UPDATE, debug_ui_update.system())
         .add_plugins(DefaultPlugins)
         .run();
-}
-
-pub fn text_update_system(
-    player_info: Query<(&Player, &Transform)>,
-    mut text_query: Query<&mut Text>,
-) {
-    for mut text in text_query.iter_mut() {
-        for (_player, transform) in player_info.iter() {
-            text.value = format!(
-                "Player Pos: {:.2}, {:.2}",
-                transform.translation.x(),
-                transform.translation.y()
-            );
-        }
-    }
 }
 
 fn setup(
@@ -62,23 +47,23 @@ fn setup(
     mut rapier_config: ResMut<RapierConfiguration>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2dComponents::default());
-
-    commands.spawn(TextComponents {
-        style: Style {
-            align_self: AlignSelf::FlexEnd,
-            ..Default::default()
-        },
-        text: Text {
-            value: "Player Pos: -0.1234567890".to_string(),
-            font: asset_server.load("fonts/SFNS.ttf"),
-            style: TextStyle {
-                font_size: 70.0,
-                color: Color::BLACK,
+    commands
+        .spawn(Camera2dComponents::default())
+        .spawn(TextComponents {
+            style: Style {
+                align_self: AlignSelf::FlexEnd,
+                ..Default::default()
             },
-        },
-        ..Default::default()
-    });
+            text: Text {
+                value: "Player Pos: -0.1234567890".to_string(),
+                font: asset_server.load("fonts/SFNS.ttf"),
+                style: TextStyle {
+                    font_size: 70.0,
+                    color: Color::BLACK,
+                },
+            },
+            ..Default::default()
+        });
 
     rapier_config.gravity = Vector2::zeros();
 
@@ -211,7 +196,6 @@ fn spawn_walls(mut commands: Commands, wall_material: Res<SpritePlaceholderMater
 
     for wall_idx in 1..=3 {
         commands
-            //.spawn((Transform::default(),))
             .spawn(SpriteComponents {
                 material: wall_material.0.clone(),
                 sprite: Sprite::new(Vec2::new(wall_side * scale_val, wall_side * scale_val)),
