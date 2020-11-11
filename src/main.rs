@@ -189,26 +189,43 @@ fn spawn_enemies(
     }
 }
 
+fn spawn_wall(
+    wall_x: f32,
+    wall_y: f32,
+    wall_width: f32,
+    wall_length: f32,
+    commands: &mut Commands,
+    wall_material: &Res<SpritePlaceholderMaterial>,
+) {
+    commands
+        .spawn(SpriteComponents {
+            material: wall_material.0.clone(),
+            sprite: Sprite::new(Vec2::new(wall_width, wall_length)),
+            ..Default::default()
+        })
+        .with(RigidBodyBuilder::new_kinematic().translation(wall_x, wall_y))
+        .with(ColliderBuilder::cuboid(wall_width / 2.0, wall_length / 2.0));
+}
+
 fn spawn_walls(mut commands: Commands, wall_material: Res<SpritePlaceholderMaterial>) {
-    eprintln!("Spawning walls.");
-    let wall_side = 16.0;
+    eprintln!("Spawning outside walls.");
+    let unscaled_wall_width = 16.0;
+    let unscaled_wall_length = 16.0;
     let scale_val = 5.0;
+    let wall_width = unscaled_wall_width * scale_val;
+    let wall_length = unscaled_wall_length * scale_val;
 
     for wall_idx in 1..=3 {
-        commands
-            .spawn(SpriteComponents {
-                material: wall_material.0.clone(),
-                sprite: Sprite::new(Vec2::new(wall_side * scale_val, wall_side * scale_val)),
-                ..Default::default()
-            })
-            .with(
-                RigidBodyBuilder::new_kinematic()
-                    .translation(((wall_idx as f32) * 150.0) - 300.0, -300.0),
-            )
-            .with(ColliderBuilder::cuboid(
-                (wall_side / 2.0) * scale_val,
-                (wall_side / 2.0) * scale_val,
-            ));
+        let wall_x = ((wall_idx as f32) * 150.0) - 300.0;
+        let wall_y = -300.0;
+        spawn_wall(
+            wall_x,
+            wall_y,
+            wall_width,
+            wall_length,
+            &mut commands,
+            &wall_material,
+        );
     }
 }
 
