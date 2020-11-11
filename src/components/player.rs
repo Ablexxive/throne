@@ -1,3 +1,6 @@
+use bevy::prelude::Properties;
+
+#[derive(Properties)]
 pub struct Player {
     pub move_speed: f32,
 }

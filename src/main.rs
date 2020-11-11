@@ -3,7 +3,7 @@ use bevy_rapier2d::physics::{RapierConfiguration, RapierPhysicsPlugin, RigidBody
 use bevy_rapier2d::rapier::dynamics::{RigidBodyBuilder, RigidBodySet};
 use bevy_rapier2d::rapier::geometry::ColliderBuilder;
 use bevy_rapier2d::rapier::na::Vector2;
-use bevy_rapier2d::render::RapierRenderPlugin;
+//use bevy_rapier2d::render::RapierRenderPlugin;
 
 use rand::Rng;
 
@@ -22,20 +22,38 @@ fn main() {
             ..Default::default()
         })
         .add_plugin(RapierPhysicsPlugin)
-        .add_plugin(RapierRenderPlugin)
+        //.add_plugin(RapierRenderPlugin)
         .add_resource(Paused(false))
         .add_resource(GamepadLobby::default())
         .add_startup_system(setup.system())
-        .add_startup_system(spawn_player.system())
-        .add_startup_system(spawn_enemies.system())
-        .add_startup_system(spawn_walls.system())
+        .add_startup_stage("spawn_entities")
+        .add_startup_system_to_stage("spawn_entities", spawn_player.system())
+        .add_startup_system_to_stage("spawn_entities", spawn_enemies.system())
+        .add_startup_system_to_stage("spawn_entities", spawn_walls.system())
         .add_system_to_stage_front(stage::PRE_UPDATE, remove_rotation.system())
+        .add_system(scene_management.thread_local_system())
         .add_system(animate_sprite_system.system())
         .add_system(connection_system.system())
         .add_system(pause.system())
         .add_system(player_movement.system())
+        .add_system_to_stage(stage::POST_UPDATE, text_update_system.system())
         .add_plugins(DefaultPlugins)
         .run();
+}
+
+pub fn text_update_system(
+    player_info: Query<(&Player, &Transform)>,
+    mut text_query: Query<&mut Text>,
+) {
+    for mut text in text_query.iter_mut() {
+        for (_player, transform) in player_info.iter() {
+            text.value = format!(
+                "Player Pos: {:.2}, {:.2}",
+                transform.translation.x(),
+                transform.translation.y()
+            );
+        }
+    }
 }
 
 fn setup(
@@ -45,6 +63,22 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2dComponents::default());
+
+    commands.spawn(TextComponents {
+        style: Style {
+            align_self: AlignSelf::FlexEnd,
+            ..Default::default()
+        },
+        text: Text {
+            value: "Player Pos: -0.1234567890".to_string(),
+            font: asset_server.load("fonts/SFNS.ttf"),
+            style: TextStyle {
+                font_size: 70.0,
+                color: Color::BLACK,
+            },
+        },
+        ..Default::default()
+    });
 
     rapier_config.gravity = Vector2::zeros();
 
@@ -170,14 +204,19 @@ fn spawn_enemies(
     }
 }
 
-fn spawn_walls(mut commands: Commands) {
+fn spawn_walls(mut commands: Commands, wall_material: Res<SpritePlaceholderMaterial>) {
     eprintln!("Spawning walls.");
     let wall_side = 16.0;
     let scale_val = 5.0;
 
     for wall_idx in 1..=3 {
         commands
-            .spawn((Transform::default(),))
+            //.spawn((Transform::default(),))
+            .spawn(SpriteComponents {
+                material: wall_material.0.clone(),
+                sprite: Sprite::new(Vec2::new(wall_side * scale_val, wall_side * scale_val)),
+                ..Default::default()
+            })
             .with(
                 RigidBodyBuilder::new_kinematic()
                     .translation(((wall_idx as f32) * 150.0) - 300.0, -300.0),
@@ -197,6 +236,7 @@ fn player_movement(
     lobby: Res<GamepadLobby>,
     paused: Res<Paused>,
     asset_server: Res<AssetServer>,
+    wall_material: Res<SpritePlaceholderMaterial>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut rigid_bodies: ResMut<RigidBodySet>,
     player_info: Query<(&Player, &Transform, &RigidBodyHandleComponent)>,
@@ -215,7 +255,14 @@ fn player_movement(
                 let scale_val = 5.0;
 
                 commands
-                    .spawn((Transform::default(),))
+                    .spawn(SpriteComponents {
+                        material: wall_material.0.clone(),
+                        sprite: Sprite::new(Vec2::new(
+                            wall_side * scale_val,
+                            wall_side * scale_val,
+                        )),
+                        ..Default::default()
+                    })
                     .with(RigidBodyBuilder::new_kinematic().translation(
                         player_transform.translation.x(),
                         player_transform.translation.y(),
@@ -247,6 +294,11 @@ fn player_movement(
                         texture_atlas: texture_atlas_handle.clone(),
                         transform: Transform {
                             scale: Vec3::new(scale_val, scale_val, 1.0),
+                            translation: Vec3::new(
+                                player_transform.translation.x(),
+                                player_transform.translation.y(),
+                                0.0,
+                            ),
                             ..Default::default()
                         },
                         ..Default::default()
@@ -254,7 +306,11 @@ fn player_movement(
                     .with(Timer::from_seconds(anim_timer, true))
                     .with(
                         RigidBodyBuilder::new_dynamic()
-                            .translation(300.0, 500.0)
+                            //.translation(300.0, 500.0)
+                            .translation(
+                                player_transform.translation.x(),
+                                player_transform.translation.y(),
+                            )
                             .angular_damping(std::f32::INFINITY)
                             .linear_damping(10.0),
                     )
