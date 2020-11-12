@@ -3505,6 +3505,8 @@ dependencies = [
  "bevy",
  "bevy_rapier2d",
  "rand",
+ "ron",
+ "serde",
 ]
 
 [[package]]

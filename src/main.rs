@@ -6,6 +6,9 @@ use bevy_rapier2d::rapier::geometry::ColliderBuilder;
 use bevy_rapier2d::rapier::na::Vector2;
 
 use rand::Rng;
+use ron;
+use serde::Deserialize;
+use std::fs;
 
 mod components;
 mod systems;
@@ -159,40 +162,61 @@ fn spawn_enemies(
     }
 }
 
+#[derive(Deserialize, Debug)]
+struct Wall {
+    idx: u32,
+    x: f32,
+    y: f32,
+    height: f32,
+    width: f32,
+}
+
+#[derive(Deserialize, Debug)]
+struct Walls {
+    walls: Vec<Wall>,
+}
+
 fn spawn_wall(
     wall_x: f32,
     wall_y: f32,
     wall_width: f32,
-    wall_length: f32,
+    wall_height: f32,
     commands: &mut Commands,
     wall_material: &Res<SpritePlaceholderMaterial>,
 ) {
+    // Sprites spawn with their translation specifying the center of the sprite.
+    // We want the bottom left corner of the wall to be at the input (wall_x, wall_y)
+    let updated_wall_x = wall_x + (0.5 * wall_width);
+    let updated_wall_y = wall_y + (0.5 * wall_height);
     commands
         .spawn(SpriteComponents {
             material: wall_material.0.clone(),
-            sprite: Sprite::new(Vec2::new(wall_width, wall_length)),
+            sprite: Sprite::new(Vec2::new(wall_width, wall_height)),
             ..Default::default()
         })
-        .with(RigidBodyBuilder::new_kinematic().translation(wall_x, wall_y))
-        .with(ColliderBuilder::cuboid(wall_width / 2.0, wall_length / 2.0));
+        .with(RigidBodyBuilder::new_kinematic().translation(updated_wall_x, updated_wall_y))
+        .with(ColliderBuilder::cuboid(wall_width / 2.0, wall_height / 2.0));
 }
 
+// TODO(Sahil) - refactor out and rename.
 fn spawn_walls(mut commands: Commands, wall_material: Res<SpritePlaceholderMaterial>) {
-    eprintln!("Spawning outside walls.");
-    let unscaled_wall_width = 16.0;
-    let unscaled_wall_length = 16.0;
-    let scale_val = 1.0;
-    let wall_width = unscaled_wall_width * scale_val;
-    let wall_length = unscaled_wall_length * scale_val;
+    let wall_definition = fs::read_to_string("wall_definition.ron").unwrap();
+    let walls: Walls = ron::de::from_str(&wall_definition).unwrap();
 
-    for wall_idx in 1..=3 {
-        let wall_x = ((wall_idx as f32) * 150.0) - 300.0;
-        let wall_y = -300.0;
+    eprintln!("Spawning outside walls.");
+    //let unscaled_wall_width = 16.0;
+    //let unscaled_wall_length = 16.0;
+    //let scale_val = 1.0;
+    //let wall_width = unscaled_wall_width * scale_val;
+    //let wall_length = unscaled_wall_length * scale_val;
+
+    //for wall_idx in 1..=3 {
+    for wall in walls.walls {
         spawn_wall(
-            wall_x,
-            wall_y,
-            wall_width,
-            wall_length,
+            wall.x,
+            wall.y,
+            wall.width,
+            wall.height,
             &mut commands,
             &wall_material,
         );

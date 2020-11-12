@@ -15,13 +15,13 @@ impl Plugin for ThroneCameraPlugin {
 }
 
 pub struct PlayerCamera {
-    pub zoom: f32,
+    pub scale_factor: f32,
 }
 
 //TODO(Sahil) - Load from config.
 impl Default for PlayerCamera {
     fn default() -> Self {
-        PlayerCamera { zoom: 0.15 }
+        PlayerCamera { scale_factor: 0.15 }
     }
 }
 
@@ -37,8 +37,8 @@ fn spawn_cameras(mut commands: Commands) {
 
 fn setup_camera(mut cam_transforms: Query<(&mut Transform, &mut PlayerCamera)>) {
     for (mut transform, player_camera) in cam_transforms.iter_mut() {
-        *transform.scale.x_mut() = player_camera.zoom;
-        *transform.scale.y_mut() = player_camera.zoom;
+        *transform.scale.x_mut() = player_camera.scale_factor;
+        *transform.scale.y_mut() = player_camera.scale_factor;
     }
 }
 
