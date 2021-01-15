@@ -204,13 +204,6 @@ fn spawn_walls(mut commands: Commands, wall_material: Res<SpritePlaceholderMater
     let walls: Walls = ron::de::from_str(&wall_definition).unwrap();
 
     eprintln!("Spawning outside walls.");
-    //let unscaled_wall_width = 16.0;
-    //let unscaled_wall_length = 16.0;
-    //let scale_val = 1.0;
-    //let wall_width = unscaled_wall_width * scale_val;
-    //let wall_length = unscaled_wall_length * scale_val;
-
-    //for wall_idx in 1..=3 {
     for wall in walls.walls {
         spawn_wall(
             wall.x,
