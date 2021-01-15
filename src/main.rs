@@ -1,11 +1,14 @@
 use bevy::prelude::*;
+use bevy::render::camera::Camera;
 use bevy_rapier2d::physics::{RapierConfiguration, RapierPhysicsPlugin, RigidBodyHandleComponent};
 use bevy_rapier2d::rapier::dynamics::{RigidBodyBuilder, RigidBodySet};
 use bevy_rapier2d::rapier::geometry::ColliderBuilder;
 use bevy_rapier2d::rapier::na::Vector2;
-//use bevy_rapier2d::render::RapierRenderPlugin;
 
 use rand::Rng;
+use ron;
+use serde::Deserialize;
+use std::fs;
 
 mod components;
 mod systems;
@@ -22,8 +25,7 @@ fn main() {
             ..Default::default()
         })
         .add_plugin(RapierPhysicsPlugin)
-        //.add_plugin(RapierRenderPlugin)
-        .add_resource(Paused(false))
+        .add_plugin(ThroneCameraPlugin)
         .add_resource(GamepadLobby::default())
         .add_startup_system(setup.system())
         .add_startup_stage("spawn_entities")
@@ -34,7 +36,6 @@ fn main() {
         .add_system(scene_management.thread_local_system())
         .add_system(animate_sprite_system.system())
         .add_system(connection_system.system())
-        .add_system(pause.system())
         .add_system(player_movement.system())
         .add_system_to_stage(stage::POST_UPDATE, debug_ui_update.system())
         .add_plugins(DefaultPlugins)
@@ -47,23 +48,21 @@ fn setup(
     mut rapier_config: ResMut<RapierConfiguration>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands
-        .spawn(Camera2dComponents::default())
-        .spawn(TextComponents {
-            style: Style {
-                align_self: AlignSelf::FlexEnd,
-                ..Default::default()
-            },
-            text: Text {
-                value: "Player Pos: -0.1234567890".to_string(),
-                font: asset_server.load("fonts/SFNS.ttf"),
-                style: TextStyle {
-                    font_size: 70.0,
-                    color: Color::BLACK,
-                },
-            },
+    commands.spawn(TextComponents {
+        style: Style {
+            align_self: AlignSelf::FlexEnd,
             ..Default::default()
-        });
+        },
+        text: Text {
+            value: "Player Pos: -0.1234567890".to_string(),
+            font: asset_server.load("fonts/SFNS.ttf"),
+            style: TextStyle {
+                font_size: 70.0,
+                color: Color::BLACK,
+            },
+        },
+        ..Default::default()
+    });
 
     rapier_config.gravity = Vector2::zeros();
 
@@ -71,32 +70,6 @@ fn setup(
     commands.insert_resource(SpritePlaceholderMaterial(
         materials.add(Color::rgb(0.7, 0.7, 0.7).into()),
     ));
-
-    // Pause Menu Elements
-    commands.spawn(UiCameraComponents::default());
-    commands
-        .spawn(TextComponents {
-            style: Style {
-                align_self: AlignSelf::Baseline,
-                size: bevy::prelude::Size::new(Val::Px(200.0), Val::Px(200.0)),
-                ..Default::default()
-            },
-            text: Text {
-                value: "Pause".to_string(),
-                font: asset_server.load("fonts/SFNS.ttf"),
-                style: TextStyle {
-                    font_size: 200.0,
-                    color: Color::WHITE,
-                },
-                ..Default::default()
-            },
-            draw: Draw {
-                is_visible: false,
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .with(PauseScreenItem);
 }
 
 fn spawn_player(
@@ -110,7 +83,7 @@ fn spawn_player(
     // TODO(Sahil) - The textures here are loaded async in the background, so you can't yet access
     // `texture.size`. Might be worth generating some sort of metadata file to hold that
     // information.
-    let scale_val = 5.0;
+    let scale_val = 1.0;
     let sprite_size_x = 16.0;
     let sprite_size_y = 23.0;
 
@@ -139,7 +112,7 @@ fn spawn_player(
             (sprite_size_y / 2.0) * scale_val,
         ))
         .with(LockRotation)
-        .with(Player::new(800.0));
+        .with(Player::new(100.0));
 }
 
 fn spawn_enemies(
@@ -152,7 +125,7 @@ fn spawn_enemies(
 
     let sprite_size_x = 16.0;
     let sprite_size_y = 23.0;
-    let scale_val = 5.0;
+    let scale_val = 1.0;
 
     let texture_atlas = TextureAtlas::from_grid(
         idle_anim_handle,
@@ -189,26 +162,57 @@ fn spawn_enemies(
     }
 }
 
-fn spawn_walls(mut commands: Commands, wall_material: Res<SpritePlaceholderMaterial>) {
-    eprintln!("Spawning walls.");
-    let wall_side = 16.0;
-    let scale_val = 5.0;
+#[derive(Deserialize, Debug)]
+struct Wall {
+    idx: u32,
+    x: f32,
+    y: f32,
+    height: f32,
+    width: f32,
+}
 
-    for wall_idx in 1..=3 {
-        commands
-            .spawn(SpriteComponents {
-                material: wall_material.0.clone(),
-                sprite: Sprite::new(Vec2::new(wall_side * scale_val, wall_side * scale_val)),
-                ..Default::default()
-            })
-            .with(
-                RigidBodyBuilder::new_kinematic()
-                    .translation(((wall_idx as f32) * 150.0) - 300.0, -300.0),
-            )
-            .with(ColliderBuilder::cuboid(
-                (wall_side / 2.0) * scale_val,
-                (wall_side / 2.0) * scale_val,
-            ));
+#[derive(Deserialize, Debug)]
+struct Walls {
+    walls: Vec<Wall>,
+}
+
+fn spawn_wall(
+    wall_x: f32,
+    wall_y: f32,
+    wall_width: f32,
+    wall_height: f32,
+    commands: &mut Commands,
+    wall_material: &Res<SpritePlaceholderMaterial>,
+) {
+    // Sprites spawn with their translation specifying the center of the sprite.
+    // We want the bottom left corner of the wall to be at the input (wall_x, wall_y)
+    let updated_wall_x = wall_x + (0.5 * wall_width);
+    let updated_wall_y = wall_y + (0.5 * wall_height);
+    commands
+        .spawn(SpriteComponents {
+            material: wall_material.0.clone(),
+            sprite: Sprite::new(Vec2::new(wall_width, wall_height)),
+            ..Default::default()
+        })
+        .with(RigidBodyBuilder::new_kinematic().translation(updated_wall_x, updated_wall_y))
+        .with(ColliderBuilder::cuboid(wall_width / 2.0, wall_height / 2.0));
+}
+
+// TODO(Sahil) - refactor out and rename.
+fn spawn_walls(mut commands: Commands, wall_material: Res<SpritePlaceholderMaterial>) {
+    let wall_definition = fs::read_to_string("wall_definition.ron").unwrap();
+    let walls: Walls = ron::de::from_str(&wall_definition).unwrap();
+
+    eprintln!("Spawning outside walls.");
+    for wall in walls.walls {
+        spawn_wall(
+            wall.x,
+            wall.y,
+            wall.width,
+            wall.height,
+            &mut commands,
+            &wall_material,
+        );
     }
 }
 
@@ -218,17 +222,13 @@ fn player_movement(
     button_inputs: Res<Input<GamepadButton>>,
     keyboard_input: Res<Input<KeyCode>>,
     lobby: Res<GamepadLobby>,
-    paused: Res<Paused>,
     asset_server: Res<AssetServer>,
     wall_material: Res<SpritePlaceholderMaterial>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut rigid_bodies: ResMut<RigidBodySet>,
     player_info: Query<(&Player, &Transform, &RigidBodyHandleComponent)>,
+    mut camera_info: Query<(&mut Camera, &mut Transform, &mut PlayerCamera)>,
 ) {
-    if paused.0 {
-        return;
-    }
-
     for (player, player_transform, rigid_body_component) in player_info.iter() {
         // First check Gamepad input
         if let Some(gamepad) = lobby.gamepads.iter().cloned().next() {
@@ -236,7 +236,7 @@ fn player_movement(
             // like this.
             if button_inputs.just_pressed(GamepadButton(gamepad, GamepadButtonType::North)) {
                 let wall_side = 16.0;
-                let scale_val = 5.0;
+                let scale_val = 1.0;
 
                 commands
                     .spawn(SpriteComponents {
@@ -261,7 +261,7 @@ fn player_movement(
 
                 let sprite_size_x = 16.0;
                 let sprite_size_y = 23.0;
-                let scale_val = 5.0;
+                let scale_val = 1.0;
 
                 let texture_atlas = TextureAtlas::from_grid(
                     idle_anim_handle,
@@ -303,6 +303,20 @@ fn player_movement(
                         (sprite_size_x / 2.0) * scale_val,
                         (sprite_size_y / 2.0) * scale_val,
                     ));
+            }
+            if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::LeftTrigger)) {
+                for (_camera, mut transform, _player_camera) in camera_info.iter_mut() {
+                    *transform.scale.x_mut() += 0.01;
+                    *transform.scale.y_mut() += 0.01;
+                    eprintln!("Camera Scale: {}", transform.scale);
+                }
+            }
+            if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::RightTrigger)) {
+                for (_camera, mut transform, _player_camera) in camera_info.iter_mut() {
+                    *transform.scale.x_mut() -= 0.01;
+                    *transform.scale.y_mut() -= 0.01;
+                    eprintln!("Camera Scale: {}", transform.scale);
+                }
             }
 
             let left_stick_x = axes
