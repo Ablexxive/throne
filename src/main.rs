@@ -32,7 +32,7 @@ fn main() {
         .add_startup_system_to_stage("spawn_entities", spawn_player.system())
         .add_startup_system_to_stage("spawn_entities", spawn_enemies.system())
         .add_startup_system_to_stage("spawn_entities", spawn_walls.system())
-        .add_system_to_stage_front(stage::PRE_UPDATE, remove_rotation.system())
+        //.add_system_to_stage_front(stage::PRE_UPDATE, remove_rotation.system())
         .add_system(scene_management.thread_local_system())
         .add_system(animate_sprite_system.system())
         .add_system(connection_system.system())
@@ -103,9 +103,7 @@ fn spawn_player(
         })
         .with(Timer::from_seconds(0.225, true))
         .with(
-            RigidBodyBuilder::new_dynamic()
-                .can_sleep(false)
-                .angular_damping(std::f32::INFINITY),
+            RigidBodyBuilder::new_dynamic().can_sleep(false), //.angular_damping(std::f32::INFINITY),
         )
         .with(ColliderBuilder::cuboid(
             (sprite_size_x / 2.0) * scale_val,
@@ -151,8 +149,8 @@ fn spawn_enemies(
             .with(
                 RigidBodyBuilder::new_dynamic()
                     .translation(((enemy_idx as f32) * 150.0) - 300.0, 300.0)
-                    .angular_damping(std::f32::INFINITY)
-                    .linear_damping(10.0),
+                    //.angular_damping(std::f32::INFINITY)
+                    //.linear_damping(10.0),
             )
             .with(LockRotation)
             .with(ColliderBuilder::cuboid(
@@ -194,7 +192,7 @@ fn spawn_wall(
             sprite: Sprite::new(Vec2::new(wall_width, wall_height)),
             ..Default::default()
         })
-        .with(RigidBodyBuilder::new_kinematic().translation(updated_wall_x, updated_wall_y))
+        .with(RigidBodyBuilder::new_dynamic().translation(updated_wall_x, updated_wall_y))
         .with(ColliderBuilder::cuboid(wall_width / 2.0, wall_height / 2.0));
 }
 
@@ -254,7 +252,7 @@ fn player_movement(
                         )),
                         ..Default::default()
                     })
-                    .with(RigidBodyBuilder::new_kinematic().translation(
+                    .with(RigidBodyBuilder::new_dynamic().translation(
                         player_transform.translation.x(),
                         player_transform.translation.y(),
                     ))
@@ -302,8 +300,8 @@ fn player_movement(
                                 player_transform.translation.x(),
                                 player_transform.translation.y(),
                             )
-                            .angular_damping(std::f32::INFINITY)
-                            .linear_damping(10.0),
+                            //.angular_damping(std::f32::INFINITY)
+                            //.linear_damping(10.0),
                     )
                     .with(LockRotation)
                     .with(ColliderBuilder::cuboid(
