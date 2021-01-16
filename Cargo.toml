@@ -7,8 +7,8 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = "0.3"
-bevy_rapier2d = { version = "0.5", features = ["simd-stable"] }
+bevy = "0.4"
+bevy_rapier2d = { version = "0.7", features = ["simd-stable"] }
 rand = "0.7"
 ron = "0.6"
 serde = "1.0"

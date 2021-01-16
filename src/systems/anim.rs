@@ -6,7 +6,7 @@ pub fn animate_sprite_system(
     mut query: Query<(&mut Timer, &mut TextureAtlasSprite, &Handle<TextureAtlas>)>,
 ) {
     for (timer, mut sprite, texture_atlas_handle) in query.iter_mut() {
-        if timer.finished {
+        if timer.finished() {
             let texture_atlas = texture_atlases.get(texture_atlas_handle).unwrap();
             sprite.index = ((sprite.index as usize + 1) % texture_atlas.textures.len()) as u32;
         }

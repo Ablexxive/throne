@@ -1,6 +1,6 @@
 use std::fs;
 
-use bevy::{prelude::*, type_registry::TypeRegistry};
+use bevy::{prelude::*, reflect::TypeRegistry};
 
 use crate::GamepadLobby;
 
@@ -19,9 +19,8 @@ pub fn load_scene(asset_server: &AssetServer, scene_spawner: &mut SceneSpawner) 
 }
 
 pub fn save_scene(world: &mut World, type_registry: &TypeRegistry) {
-    //let type_registry = resources.get::<TypeRegistry>().unwrap();
-    let scene = DynamicScene::from_world(&world, &type_registry.component.read());
-    let serialized = scene.serialize_ron(&type_registry.property.read()).unwrap();
+    let scene = DynamicScene::from_world(&world, &type_registry);
+    let serialized = scene.serialize_ron(&type_registry).unwrap();
     fs::write("scene_test.scn", serialized).unwrap();
 }
 

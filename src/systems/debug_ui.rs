@@ -10,8 +10,7 @@ pub fn debug_ui_update(
         for (_player, transform) in player_info.iter() {
             text.value = format!(
                 "Player Pos: {:.2}, {:.2}",
-                transform.translation.x(),
-                transform.translation.y()
+                transform.translation.x, transform.translation.y,
             );
         }
     }

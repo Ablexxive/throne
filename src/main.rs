@@ -1,3 +1,4 @@
+use bevy::app::startup_stage::PRE_STARTUP;
 use bevy::prelude::*;
 use bevy::render::camera::Camera;
 use bevy_rapier2d::physics::{RapierConfiguration, RapierPhysicsPlugin, RigidBodyHandleComponent};
@@ -20,35 +21,33 @@ fn main() {
     App::build()
         .add_resource(WindowDescriptor {
             title: "Heaven Through Violence".to_string(),
-            width: 2000,
-            height: 2000,
+            width: 2000.0,
+            height: 2000.0,
             ..Default::default()
         })
         .add_plugin(RapierPhysicsPlugin)
         .add_plugin(ThroneCameraPlugin)
         .add_resource(GamepadLobby::default())
-        .add_startup_system(setup.system())
-        .add_startup_stage("spawn_entities")
-        .add_startup_system_to_stage("spawn_entities", spawn_player.system())
-        .add_startup_system_to_stage("spawn_entities", spawn_enemies.system())
-        .add_startup_system_to_stage("spawn_entities", spawn_walls.system())
-        .add_system_to_stage_front(stage::PRE_UPDATE, remove_rotation.system())
-        .add_system(scene_management.thread_local_system())
+        .add_startup_system_to_stage(PRE_STARTUP, setup.system())
+        .add_startup_system(spawn_player.system())
+        .add_startup_system(spawn_enemies.system())
+        .add_startup_system(spawn_walls.system())
+        .add_system(scene_management.system())
         .add_system(animate_sprite_system.system())
         .add_system(connection_system.system())
         .add_system(player_movement.system())
-        .add_system_to_stage(stage::POST_UPDATE, debug_ui_update.system())
+        .add_system(debug_ui_update.system())
         .add_plugins(DefaultPlugins)
         .run();
 }
 
 fn setup(
-    mut commands: Commands,
+    commands: &mut Commands,
     asset_server: Res<AssetServer>,
     mut rapier_config: ResMut<RapierConfiguration>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(TextComponents {
+    commands.spawn(TextBundle {
         style: Style {
             align_self: AlignSelf::FlexEnd,
             ..Default::default()
@@ -59,6 +58,7 @@ fn setup(
             style: TextStyle {
                 font_size: 70.0,
                 color: Color::BLACK,
+                ..Default::default()
             },
         },
         ..Default::default()
@@ -73,7 +73,7 @@ fn setup(
 }
 
 fn spawn_player(
-    mut commands: Commands,
+    commands: &mut Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
@@ -96,27 +96,22 @@ fn spawn_player(
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     commands
-        .spawn(SpriteSheetComponents {
+        .spawn(SpriteSheetBundle {
             texture_atlas: texture_atlas_handle,
             transform: Transform::from_scale(Vec3::new(scale_val, scale_val, 1.0)),
             ..Default::default()
         })
         .with(Timer::from_seconds(0.225, true))
-        .with(
-            RigidBodyBuilder::new_dynamic()
-                .can_sleep(false)
-                .angular_damping(std::f32::INFINITY),
-        )
+        .with(RigidBodyBuilder::new_dynamic().lock_rotations())
         .with(ColliderBuilder::cuboid(
             (sprite_size_x / 2.0) * scale_val,
             (sprite_size_y / 2.0) * scale_val,
         ))
-        .with(LockRotation)
         .with(Player::new(100.0));
 }
 
 fn spawn_enemies(
-    mut commands: Commands,
+    commands: &mut Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
@@ -139,7 +134,7 @@ fn spawn_enemies(
     for enemy_idx in 1..=3 {
         let anim_timer = rng.gen_range(0.175, 0.300);
         commands
-            .spawn(SpriteSheetComponents {
+            .spawn(SpriteSheetBundle {
                 texture_atlas: texture_atlas_handle.clone(),
                 transform: Transform {
                     scale: Vec3::new(scale_val, scale_val, 1.0),
@@ -151,10 +146,9 @@ fn spawn_enemies(
             .with(
                 RigidBodyBuilder::new_dynamic()
                     .translation(((enemy_idx as f32) * 150.0) - 300.0, 300.0)
-                    .angular_damping(std::f32::INFINITY)
+                    .lock_rotations()
                     .linear_damping(10.0),
             )
-            .with(LockRotation)
             .with(ColliderBuilder::cuboid(
                 (sprite_size_x / 2.0) * scale_val,
                 (sprite_size_y / 2.0) * scale_val,
@@ -189,7 +183,7 @@ fn spawn_wall(
     let updated_wall_x = wall_x + (0.5 * wall_width);
     let updated_wall_y = wall_y + (0.5 * wall_height);
     commands
-        .spawn(SpriteComponents {
+        .spawn(SpriteBundle {
             material: wall_material.0.clone(),
             sprite: Sprite::new(Vec2::new(wall_width, wall_height)),
             ..Default::default()
@@ -199,7 +193,7 @@ fn spawn_wall(
 }
 
 // TODO(Sahil) - refactor out and rename.
-fn spawn_walls(mut commands: Commands, wall_material: Res<SpritePlaceholderMaterial>) {
+fn spawn_walls(commands: &mut Commands, wall_material: Res<SpritePlaceholderMaterial>) {
     let wall_definition = fs::read_to_string("wall_definition.ron").unwrap();
     let walls: Walls = ron::de::from_str(&wall_definition).unwrap();
 
@@ -210,14 +204,14 @@ fn spawn_walls(mut commands: Commands, wall_material: Res<SpritePlaceholderMater
             wall.y,
             wall.width,
             wall.height,
-            &mut commands,
+            commands,
             &wall_material,
         );
     }
 }
 
 fn player_movement(
-    mut commands: Commands,
+    commands: &mut Commands,
     axes: Res<Axis<GamepadAxis>>,
     button_inputs: Res<Input<GamepadButton>>,
     keyboard_input: Res<Input<KeyCode>>,
@@ -239,7 +233,7 @@ fn player_movement(
                 let scale_val = 1.0;
 
                 commands
-                    .spawn(SpriteComponents {
+                    .spawn(SpriteBundle {
                         material: wall_material.0.clone(),
                         sprite: Sprite::new(Vec2::new(
                             wall_side * scale_val,
@@ -248,8 +242,8 @@ fn player_movement(
                         ..Default::default()
                     })
                     .with(RigidBodyBuilder::new_kinematic().translation(
-                        player_transform.translation.x(),
-                        player_transform.translation.y(),
+                        player_transform.translation.x,
+                        player_transform.translation.y,
                     ))
                     .with(ColliderBuilder::cuboid(
                         (wall_side / 2.0) * scale_val,
@@ -274,13 +268,13 @@ fn player_movement(
                 let mut rng = rand::thread_rng();
                 let anim_timer = rng.gen_range(0.175, 0.300);
                 commands
-                    .spawn(SpriteSheetComponents {
+                    .spawn(SpriteSheetBundle {
                         texture_atlas: texture_atlas_handle.clone(),
                         transform: Transform {
                             scale: Vec3::new(scale_val, scale_val, 1.0),
                             translation: Vec3::new(
-                                player_transform.translation.x(),
-                                player_transform.translation.y(),
+                                player_transform.translation.x,
+                                player_transform.translation.y,
                                 0.0,
                             ),
                             ..Default::default()
@@ -290,12 +284,11 @@ fn player_movement(
                     .with(Timer::from_seconds(anim_timer, true))
                     .with(
                         RigidBodyBuilder::new_dynamic()
-                            //.translation(300.0, 500.0)
                             .translation(
-                                player_transform.translation.x(),
-                                player_transform.translation.y(),
+                                player_transform.translation.x,
+                                player_transform.translation.y,
                             )
-                            .angular_damping(std::f32::INFINITY)
+                            .lock_rotations()
                             .linear_damping(10.0),
                     )
                     .with(LockRotation)
@@ -306,15 +299,15 @@ fn player_movement(
             }
             if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::LeftTrigger)) {
                 for (_camera, mut transform, _player_camera) in camera_info.iter_mut() {
-                    *transform.scale.x_mut() += 0.01;
-                    *transform.scale.y_mut() += 0.01;
+                    transform.scale.x += 0.01;
+                    transform.scale.y += 0.01;
                     eprintln!("Camera Scale: {}", transform.scale);
                 }
             }
             if button_inputs.pressed(GamepadButton(gamepad, GamepadButtonType::RightTrigger)) {
                 for (_camera, mut transform, _player_camera) in camera_info.iter_mut() {
-                    *transform.scale.x_mut() -= 0.01;
-                    *transform.scale.y_mut() -= 0.01;
+                    transform.scale.x -= 0.01;
+                    transform.scale.y -= 0.01;
                     eprintln!("Camera Scale: {}", transform.scale);
                 }
             }
@@ -333,8 +326,8 @@ fn player_movement(
                 move_delta
             };
 
-            if let Some(mut rb) = rigid_bodies.get_mut(rigid_body_component.handle()) {
-                rb.linvel = move_delta * player.move_speed;
+            if let Some(rb) = rigid_bodies.get_mut(rigid_body_component.handle()) {
+                rb.set_linvel(move_delta * player.move_speed, true);
             }
         } else {
             // Check Keyboard input
@@ -346,8 +339,8 @@ fn player_movement(
             if move_delta != Vector2::zeros() {
                 move_delta /= move_delta.magnitude();
             }
-            if let Some(mut rb) = rigid_bodies.get_mut(rigid_body_component.handle()) {
-                rb.linvel = move_delta * player.move_speed;
+            if let Some(rb) = rigid_bodies.get_mut(rigid_body_component.handle()) {
+                rb.set_linvel(move_delta * player.move_speed, true);
             }
         }
     }
